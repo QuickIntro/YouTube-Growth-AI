@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Growth AI Assistant",
+  "description": "Optimize YouTube videos with AI: titles, tags, descriptions, and quick analytics.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Growth AI Assistant"
+  },
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://studio.youtube.com/*",
+    "http://localhost:4000/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://studio.youtube.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

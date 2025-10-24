@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Growth AI Extension — Options</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system; background:#0f172a; color:#e2e8f0; padding:16px; }
+      .field { margin-bottom: 12px; }
+      input { width: 100%; background:#0b1220; color:#e2e8f0; border:1px solid #334155; border-radius:8px; padding:8px; }
+      button { background:#7c3aed; color:white; border:none; border-radius:8px; padding:8px 12px; font-weight:600; cursor:pointer; }
+      .muted { color:#94a3b8; font-size:12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Growth AI Extension — Options</h1>
+    <div class="field">
+      <label>Backend URL</label>
+      <input id="backend" placeholder="http://localhost:4000" />
+      <div class="muted">Set this to your deployed API if not local.</div>
+    </div>
+    <div class="field">
+      <label>Bearer token (optional)</label>
+      <input id="token" placeholder="Paste backendToken for protected endpoints" />
+      <div class="muted">You can fetch your token from /api/auth/session in the web app.</div>
+    </div>
+    <button id="save">Save</button>
+
+    <script>
+      (function(){
+        const q = s => document.querySelector(s);
+        chrome.storage.sync.get(['BACKEND_URL', 'TOKEN'], (res) => {
+          q('#backend').value = res.BACKEND_URL || 'http://localhost:4000';
+          q('#token').value = res.TOKEN || '';
+        });
+        q('#save').addEventListener('click', () => {
+          chrome.storage.sync.set({ BACKEND_URL: q('#backend').value.trim(), TOKEN: q('#token').value.trim() });
+          alert('Saved!');
+        });
+      })();
+    </script>
+  </body>
+</html>
