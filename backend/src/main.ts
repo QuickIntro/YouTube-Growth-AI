@@ -13,8 +13,17 @@ async function bootstrap() {
   app.use(compression());
 
   // CORS
+  const raw = process.env.ALLOWED_ORIGINS || process.env.NEXT_PUBLIC_APP_URL || '';
+  const allowList = (raw ? raw.split(',') : []).map(s => s.trim()).filter(Boolean);
   app.enableCors({
-    origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowList.length === 0) {
+        return callback(null, origin === 'http://localhost:3000');
+      }
+      if (allowList.includes(origin)) return callback(null, true);
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   });
 

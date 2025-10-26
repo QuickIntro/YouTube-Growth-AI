@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const nextConfig = {
   reactStrictMode: true,
@@ -18,16 +18,10 @@ const nextConfig = {
     NEXT_PUBLIC_ADSENSE_CLIENT_ID: process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID,
   },
   async rewrites() {
+    // Always proxy /api to the backend URL (defaults to http://localhost:4000), while keeping NextAuth routes local.
     return [
-      // Keep NextAuth internal API routes on Next.js (do not proxy)
-      {
-        source: '/api/auth/:path*',
-        destination: '/api/auth/:path*',
-      },
-      {
-        source: '/api/:path*',
-        destination: `${API_URL}/:path*`,
-      },
+      { source: '/api/auth/:path*', destination: '/api/auth/:path*' },
+      { source: '/api/:path*', destination: `${API_URL}/:path*` },
     ];
   },
   async headers() {
