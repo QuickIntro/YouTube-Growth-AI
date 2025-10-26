@@ -2,6 +2,13 @@ import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import axios from 'axios';
 
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'development-secret';
+if (!process.env.NEXTAUTH_SECRET && process.env.NODE_ENV === 'production') {
+  // eslint-disable-next-line no-console
+  console.warn('[NextAuth] NEXTAUTH_SECRET is not set. Using an insecure default. Set NEXTAUTH_SECRET in production.');
+}
+
 const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -43,7 +50,7 @@ const authOptions: NextAuthOptions = {
         
         // Save user to backend
         try {
-          const { data } = await axios.post(`${process.env.BACKEND_URL}/api/auth/google`, {
+          const { data } = await axios.post(`${BACKEND_URL}/api/auth/google`, {
             email: profile?.email,
             name: profile?.name,
             picture: (profile as any)?.picture,
@@ -56,7 +63,7 @@ const authOptions: NextAuthOptions = {
             (token as any).backendToken = data.access_token;
             // Fetch user profile to extract role and persist to token
             try {
-              const me = await axios.get(`${process.env.BACKEND_URL}/api/auth/me`, {
+              const me = await axios.get(`${BACKEND_URL}/api/auth/me`, {
                 headers: { Authorization: `Bearer ${data.access_token}` },
               });
               if (me?.data?.role) {
@@ -88,7 +95,7 @@ const authOptions: NextAuthOptions = {
     strategy: 'jwt',
     maxAge: 7 * 24 * 60 * 60, // 7 days
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);

@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+// Default to same-origin so Next.js rewrites can proxy to backend in single-service deployments.
+// Allow explicit override via NEXT_PUBLIC_API_URL when backend has a public URL.
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const api = axios.create({
   baseURL: API_URL,
