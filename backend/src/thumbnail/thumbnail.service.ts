@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from '../database/database.service';
 import { AiService } from '../ai/ai.service';
+import axios from 'axios';
+import FormData from 'form-data';
 
 @Injectable()
 export class ThumbnailService {
@@ -20,20 +22,18 @@ export class ThumbnailService {
       if (!baseUrl) throw new Error('RENDER_THUMBNAIL_SERVICE_URL is not configured');
       if (!apiKey) throw new Error('RENDER_API_KEY is not configured');
 
-      const blob = new Blob([file.buffer], { type: file.mimetype || 'image/jpeg' });
       const form = new FormData();
-      form.append('file', blob, 'thumbnail.jpg');
-
-      const resp = await fetch(`${baseUrl}/analyze`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: form as any,
+      form.append('file', file.buffer, {
+        filename: 'thumbnail.jpg',
+        contentType: file.mimetype || 'image/jpeg',
       });
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => '');
-        throw new Error(`Render thumbnail service error: ${resp.status} ${text}`);
-      }
-      const result = await resp.json();
+
+      const headers = {
+        ...form.getHeaders(),
+        Authorization: `Bearer ${apiKey}`,
+      };
+
+      const { data: result } = await axios.post(`${baseUrl}/analyze`, form, { headers });
 
       await this.databaseService.getClient().from('thumbnail_analyses').insert({
         user_id: userId,
