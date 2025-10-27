@@ -13,19 +13,21 @@ services:
       npm run build
     startCommand: npm start
     envVars:
-      # REQUIRED: Set these in Render Dashboard after first deploy
+      # Base URL for NextAuth; must match your Render domain exactly
       - key: NEXTAUTH_URL
-        sync: false
+        value: https://youtube-grouth-ai-frontend.onrender.com
+      # Secret & Google OAuth creds must be set in dashboard
       - key: NEXTAUTH_SECRET
-        generateValue: true
-      - key: NEXT_PUBLIC_API_URL
-        value: https://youtube-grouth-ai-backend.onrender.com
-      - key: BACKEND_URL
-        value: https://youtube-grouth-ai-backend.onrender.com
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # API endpoints used by the frontend
+      - key: NEXT_PUBLIC_API_URL
+        value: https://youtube-grouth-ai-backend.onrender.com
+      - key: BACKEND_URL
+        value: https://youtube-grouth-ai-backend.onrender.com
 
   - type: web
     name: youtube-grouth-ai-backend
@@ -39,9 +41,9 @@ services:
     startCommand: npm run start:prod
     healthCheckPath: /api/docs
     envVars:
-      # CORS
+      # CORS (allow both potential frontend domains)
       - key: ALLOWED_ORIGINS
-        value: https://youtube-grouth-ai.onrender.com
+        value: https://youtube-grouth-ai-frontend.onrender.com,https://youtube-grouth-ai.onrender.com
       # Auth & Providers
       - key: JWT_SECRET
         sync: false
