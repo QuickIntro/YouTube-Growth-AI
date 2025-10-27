@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { redirect } from 'next/navigation';
@@ -8,10 +9,17 @@ import { StatsCard } from '@/components/stats-card';
 import { ChannelChart } from '@/components/channel-chart';
 import { AdSenseUnit } from '@/components/adsense';
 import { apiClient } from '@/lib/api';
-import { Eye, TrendingUp, Clock, Users } from 'lucide-react';
+import { Eye, TrendingUp, Clock, Users, Upload, CalendarClock } from 'lucide-react';
+import { UploadModal } from '@/components/UploadModal';
+import { ScheduleModal } from '@/components/ScheduleModal';
+import { CommentsPanel } from '@/components/CommentsPanel';
+import { PlaylistsPanel } from '@/components/PlaylistsPanel';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
+  const [showUpload, setShowUpload] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
   if (status === 'unauthenticated') {
     redirect('/api/auth/signin');
@@ -48,6 +56,19 @@ export default function DashboardPage() {
           <p className="text-slate-400">
             Welcome back, {channelData?.channelTitle || 'User'}!
           </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowUpload(true)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground flex items-center gap-2">
+            <Upload className="w-4 h-4"/> Upload
+          </button>
+          <button onClick={() => setShowSchedule(true)} disabled={!selectedVideoId} className="px-4 py-2 rounded-lg bg-muted hover:bg-muted/80 disabled:opacity-50 flex items-center gap-2">
+            <CalendarClock className="w-4 h-4"/> Schedule
+          </button>
+          {selectedVideoId && (
+            <div className="text-sm text-muted-foreground">Selected video: {selectedVideoId}</div>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -108,7 +129,8 @@ export default function DashboardPage() {
             {channelData?.recentVideos?.map((video: any) => (
               <div
                 key={video.id}
-                className="flex items-center gap-4 p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors"
+                className={`flex items-center gap-4 p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer ${selectedVideoId===video.id? 'ring-2 ring-primary' : ''}`}
+                onClick={() => setSelectedVideoId(video.id)}
               >
                 <img
                   src={video.thumbnail}
@@ -125,7 +147,16 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
+
+        {/* Panels */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CommentsPanel videoId={selectedVideoId || channelData?.recentVideos?.[0]?.id || ''} />
+          <PlaylistsPanel selectedVideoId={selectedVideoId || undefined} />
+        </div>
       </div>
+
+      <UploadModal open={showUpload} onClose={() => setShowUpload(false)} />
+      <ScheduleModal open={showSchedule} onClose={() => setShowSchedule(false)} videoId={selectedVideoId || channelData?.recentVideos?.[0]?.id || ''} />
     </DashboardLayout>
   );
 }

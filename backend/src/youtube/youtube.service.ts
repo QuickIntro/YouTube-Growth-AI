@@ -247,4 +247,328 @@ export class YoutubeService {
       throw error;
     }
   }
+
+  // ============ WRITE/ADMIN METHODS ============
+
+  private oauthClient(accessToken: string, refreshToken?: string) {
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const oauth2Client = clientId && clientSecret
+      ? new google.auth.OAuth2(clientId, clientSecret)
+      : new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: accessToken, refresh_token: refreshToken });
+    return oauth2Client;
+  }
+
+  async updateVideo(
+    accessToken: string,
+    refreshToken: string | undefined,
+    input: {
+      videoId: string;
+      title?: string;
+      description?: string;
+      tags?: string[];
+      categoryId?: string;
+      privacyStatus?: 'private' | 'public' | 'unlisted';
+      publishAt?: string; // RFC3339
+    },
+  ) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+
+    const { videoId, title, description, tags, categoryId, privacyStatus, publishAt } = input;
+    try {
+      const request: any = {
+        part: ['snippet', 'status'],
+        requestBody: {
+          id: videoId,
+          snippet: {},
+          status: {},
+        },
+      };
+      if (title !== undefined) (request.requestBody.snippet as any).title = title;
+      if (description !== undefined) (request.requestBody.snippet as any).description = description;
+      if (tags !== undefined) (request.requestBody.snippet as any).tags = tags;
+      if (categoryId !== undefined) (request.requestBody.snippet as any).categoryId = categoryId;
+      if (privacyStatus !== undefined) (request.requestBody.status as any).privacyStatus = privacyStatus;
+      if (publishAt) {
+        (request.requestBody.status as any).publishAt = publishAt;
+        // To schedule, video must be private until publishAt
+        if (!(request.requestBody.status as any).privacyStatus) {
+          (request.requestBody.status as any).privacyStatus = 'private';
+        }
+      }
+
+      const res = await yt.videos.update(request);
+
+      // Log to DB
+      try {
+        await db.from('youtube_video_updates').insert({
+          user_id: null, // filled by trigger or add via controller if needed
+          video_id: videoId,
+          title,
+          description,
+          tags,
+          category_id: categoryId,
+          privacy_status: privacyStatus,
+          publish_at: publishAt ? new Date(publishAt).toISOString() : null,
+          applied: true,
+          applied_at: new Date().toISOString(),
+        });
+      } catch {}
+
+      return res.data;
+    } catch (error) {
+      console.error('Error updating video:', error);
+      // Log failure
+      try {
+        await db.from('youtube_video_updates').insert({
+          user_id: null,
+          video_id: videoId,
+          title,
+          description,
+          tags,
+          category_id: categoryId,
+          privacy_status: privacyStatus,
+          publish_at: publishAt ? new Date(publishAt).toISOString() : null,
+          applied: false,
+          error_message: String((error as any)?.message || error),
+        });
+      } catch {}
+      throw error;
+    }
+  }
+
+  async listComments(accessToken: string, videoId: string, maxResults = 20, refreshToken?: string) {
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    const res = await yt.commentThreads.list({
+      part: ['snippet', 'replies'],
+      videoId,
+      maxResults,
+      textFormat: 'plainText',
+      order: 'time',
+    });
+    return res.data;
+  }
+
+  async replyComment(accessToken: string, parentId: string, text: string, refreshToken?: string) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    try {
+      const res = await yt.comments.insert({
+        part: ['snippet'],
+        requestBody: {
+          snippet: {
+            parentId,
+            textOriginal: text,
+          },
+        },
+      });
+      try {
+        await db.from('youtube_comment_actions').insert({ action: 'reply', thread_id: parentId, payload: { text }, success: true });
+      } catch {}
+      return res.data;
+    } catch (error) {
+      try { await db.from('youtube_comment_actions').insert({ action: 'reply', thread_id: parentId, payload: { text }, success: false, error_message: String((error as any)?.message || error) }); } catch {}
+      throw error;
+    }
+  }
+
+  async moderateComment(accessToken: string, commentId: string, action: string, refreshToken?: string) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    try {
+      // Map action to moderationStatus
+      let moderationStatus: 'published' | 'heldForReview' | 'rejected' | undefined;
+      let banAuthor = false;
+      if (action === 'approve') moderationStatus = 'published';
+      else if (action === 'reject') moderationStatus = 'rejected';
+      else if (action === 'hold' || action === 'heldForReview') moderationStatus = 'heldForReview';
+      else if (action === 'spam') { moderationStatus = 'rejected'; banAuthor = true; }
+
+      if (moderationStatus) {
+        await yt.comments.setModerationStatus({ id: [commentId], moderationStatus, banAuthor });
+      } else if (action === 'hide' || action === 'unhide') {
+        await yt.comments.update({
+          part: ['snippet'],
+          requestBody: { id: commentId, snippet: { moderationStatus: action === 'hide' ? 'rejected' : 'published' } as any },
+        });
+      } else {
+        throw new Error('Unsupported moderation action');
+      }
+      try { await db.from('youtube_comment_actions').insert({ action, comment_id: commentId, success: true }); } catch {}
+      return { success: true };
+    } catch (error) {
+      try { await db.from('youtube_comment_actions').insert({ action, comment_id: commentId, success: false, error_message: String((error as any)?.message || error) }); } catch {}
+      throw error;
+    }
+  }
+
+  async listPlaylists(accessToken: string, refreshToken?: string) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    const res = await yt.playlists.list({ part: ['snippet', 'contentDetails', 'status'], mine: true, maxResults: 50 });
+    const items = res.data.items || [];
+    // cache
+    try {
+      for (const p of items) {
+        await db.from('youtube_playlists').upsert({
+          playlist_id: p.id,
+          title: p.snippet?.title,
+          description: p.snippet?.description,
+          item_count: p.contentDetails?.itemCount,
+          privacy_status: p.status?.privacyStatus,
+          raw: p as any,
+        }, { onConflict: 'playlist_id' } as any);
+      }
+    } catch {}
+    return items;
+  }
+
+  async listPlaylistItems(accessToken: string, playlistId: string, maxResults = 50, refreshToken?: string) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    const res = await yt.playlistItems.list({ part: ['snippet', 'contentDetails'], playlistId, maxResults });
+    const items = res.data.items || [];
+    // cache
+    try {
+      for (const it of items) {
+        await db.from('youtube_playlist_items').upsert({
+          playlist_id: playlistId,
+          playlist_item_id: it.id,
+          video_id: it.contentDetails?.videoId,
+          position: it.snippet?.position,
+          title: it.snippet?.title,
+          raw: it as any,
+        }, { onConflict: 'playlist_item_id' } as any);
+      }
+    } catch {}
+    return items;
+  }
+
+  async addToPlaylist(accessToken: string, playlistId: string, videoId: string, refreshToken?: string) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    try {
+      const res = await yt.playlistItems.insert({
+        part: ['snippet'],
+        requestBody: {
+          snippet: { playlistId, resourceId: { kind: 'youtube#video', videoId } },
+        },
+      });
+      try { await db.from('youtube_playlist_actions').insert({ action: 'add', playlist_id: playlistId, video_id: videoId, success: true, payload: { playlistItemId: res.data.id } }); } catch {}
+      return res.data;
+    } catch (error) {
+      try { await db.from('youtube_playlist_actions').insert({ action: 'add', playlist_id: playlistId, video_id: videoId, success: false, error_message: String((error as any)?.message || error) }); } catch {}
+      throw error;
+    }
+  }
+
+  async removeFromPlaylist(accessToken: string, playlistItemId: string, refreshToken?: string) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    try {
+      await yt.playlistItems.delete({ id: playlistItemId });
+      try { await db.from('youtube_playlist_actions').insert({ action: 'remove', playlist_item_id: playlistItemId, success: true }); } catch {}
+      return { success: true };
+    } catch (error) {
+      try { await db.from('youtube_playlist_actions').insert({ action: 'remove', playlist_item_id: playlistItemId, success: false, error_message: String((error as any)?.message || error) }); } catch {}
+      throw error;
+    }
+  }
+
+  async reorderPlaylistItem(accessToken: string, playlistItemId: string, position: number, refreshToken?: string) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    try {
+      // Need to fetch existing item to get playlistId and snippet
+      const current = await yt.playlistItems.list({ part: ['snippet'], id: [playlistItemId] });
+      const item = current.data.items?.[0];
+      if (!item) throw new Error('Playlist item not found');
+      const playlistId = item.snippet?.playlistId as string;
+      const res = await yt.playlistItems.update({
+        part: ['snippet'],
+        requestBody: {
+          id: playlistItemId,
+          snippet: {
+            playlistId,
+            resourceId: item.snippet?.resourceId,
+            position,
+          } as any,
+        },
+      });
+      try { await db.from('youtube_playlist_actions').insert({ action: 'reorder', playlist_item_id: playlistItemId, position, success: true }); } catch {}
+      return res.data;
+    } catch (error) {
+      try { await db.from('youtube_playlist_actions').insert({ action: 'reorder', playlist_item_id: playlistItemId, position, success: false, error_message: String((error as any)?.message || error) }); } catch {}
+      throw error;
+    }
+  }
+
+  async uploadVideo(
+    accessToken: string,
+    refreshToken: string | undefined,
+    file: Express.Multer.File,
+    input: {
+      title?: string;
+      description?: string;
+      tags?: string[];
+      categoryId?: string;
+      privacyStatus?: 'private' | 'public' | 'unlisted';
+      publishAt?: string;
+      madeForKids?: boolean;
+    },
+  ) {
+    const db = this.databaseService.getClient();
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+
+    const { title, description, tags, categoryId, privacyStatus, publishAt, madeForKids } = input;
+    // create upload job row
+    let jobId: string | undefined;
+    try {
+      const ins = await db.from('youtube_uploads').insert({
+        status: 'uploading', title, description, tags, category_id: categoryId, privacy_status: privacyStatus, publish_at: publishAt ? new Date(publishAt).toISOString() : null, made_for_kids: madeForKids,
+      }).select('id').single();
+      jobId = ins.data?.id;
+    } catch {}
+
+    try {
+      const res = await yt.videos.insert({
+        part: ['snippet', 'status'],
+        requestBody: {
+          snippet: { title, description, tags, categoryId },
+          status: {
+            privacyStatus: publishAt ? 'private' : (privacyStatus || 'private'),
+            publishAt: publishAt,
+            selfDeclaredMadeForKids: madeForKids,
+          } as any,
+        },
+        media: { body: Buffer.from(file.buffer) },
+      } as any);
+
+      const videoId = res.data.id;
+      try { await db.from('youtube_uploads').update({ status: 'completed', video_id: videoId }).eq('id', jobId as any); } catch {}
+      return res.data;
+    } catch (error) {
+      try { await db.from('youtube_uploads').update({ status: 'failed', error_message: String((error as any)?.message || error) }).eq('id', jobId as any); } catch {}
+      throw error;
+    }
+  }
+
+  async setThumbnail(accessToken: string, videoId: string, file: Express.Multer.File, refreshToken?: string) {
+    const oauth2Client = this.oauthClient(accessToken, refreshToken);
+    const yt = google.youtube({ version: 'v3', auth: oauth2Client });
+    const res = await yt.thumbnails.set({ videoId, media: { body: Buffer.from(file.buffer) } as any } as any);
+    return res.data;
+  }
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { redirect } from 'next/navigation';
 import { DashboardLayout } from '@/components/dashboard-layout';
+import { ConnectedAccountsCard } from '@/components/ConnectedAccountsCard';
 import { useTheme } from '@/components/theme-provider';
 import { apiClient } from '@/lib/api';
 import { Moon, Sun, Globe, Trash2, Save, Loader2 } from 'lucide-react';
@@ -177,6 +178,9 @@ export default function SettingsPage() {
             </>
           )}
         </button>
+
+        {/* Connected Accounts */}
+        <ConnectedAccountsCard />
 
         {/* Danger Zone */}
         <div className="glass p-6 rounded-xl space-y-4 border-2 border-destructive/50">

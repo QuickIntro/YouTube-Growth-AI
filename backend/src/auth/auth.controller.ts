@@ -46,4 +46,12 @@ export class AuthController {
   async deleteAccount(@Request() req) {
     return this.authService.deleteAccount(req.user.id);
   }
+
+  @Post('revoke')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke Google tokens for current user' })
+  async revoke(@Request() req) {
+    return this.authService.revokeGoogleTokens(req.user.email);
+  }
 }

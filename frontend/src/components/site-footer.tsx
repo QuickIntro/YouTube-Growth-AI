@@ -11,7 +11,7 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Image src="/brands/logo.png" alt="Logo" width={140} height={32} />
+              <Image src="/brands/logo.svg" alt="Logo" width={140} height={32} />
             </div>
             <p className="text-sm text-muted-foreground">
               Free AI tools to grow your channel: keywords, titles, descriptions, thumbnails, and analytics.

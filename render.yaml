@@ -15,7 +15,7 @@ services:
     envVars:
       # Base URL for NextAuth; must match your Render domain exactly
       - key: NEXTAUTH_URL
-        value: https://youtube-grouth-ai-frontend.onrender.com
+        value: https://www.youtubegrowthai.com
       # Secret & Google OAuth creds must be set in dashboard
       - key: NEXTAUTH_SECRET
         sync: false
@@ -25,9 +25,9 @@ services:
         sync: false
       # API endpoints used by the frontend
       - key: NEXT_PUBLIC_API_URL
-        value: https://youtube-grouth-ai-backend.onrender.com
+        value: https://api.youtubegrowthai.com
       - key: BACKEND_URL
-        value: https://youtube-grouth-ai-backend.onrender.com
+        value: https://api.youtubegrowthai.com
 
   - type: web
     name: youtube-grouth-ai-backend
@@ -43,7 +43,7 @@ services:
     envVars:
       # CORS (allow both potential frontend domains)
       - key: ALLOWED_ORIGINS
-        value: https://youtube-grouth-ai-frontend.onrender.com,https://youtube-grouth-ai.onrender.com
+        value: https://www.youtubegrowthai.com,https://youtubegrowthai.com
       # Auth & Providers
       - key: JWT_SECRET
         sync: false

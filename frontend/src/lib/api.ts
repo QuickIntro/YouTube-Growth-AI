@@ -195,6 +195,79 @@ export const apiClient = {
     const search = new URLSearchParams({ limit: String(params?.limit ?? 5000), ...(params as any) }).toString();
     return `${API_URL}/api/admin/usage.csv?${search}`;
   },
+
+  // YouTube WRITE APIs
+  async youtubeUpdate(input: {
+    videoId: string;
+    title?: string;
+    description?: string;
+    tags?: string[];
+    categoryId?: string;
+    privacyStatus?: 'private' | 'public' | 'unlisted';
+    publishAt?: string; // RFC3339
+  }) {
+    const { data } = await api.post('/api/youtube/video/update', input);
+    return data;
+  },
+
+  async youtubeComments(videoId: string, maxResults = 20) {
+    const { data } = await api.get(`/api/youtube/comments?videoId=${encodeURIComponent(videoId)}&maxResults=${maxResults}`);
+    return data;
+  },
+
+  async youtubeReply(parentId: string, text: string) {
+    const { data } = await api.post('/api/youtube/comments/reply', { parentId, text });
+    return data;
+  },
+
+  async youtubeModerate(commentId: string, action: string) {
+    const { data } = await api.post('/api/youtube/comments/moderate', { commentId, action });
+    return data;
+  },
+
+  async youtubePlaylists() {
+    const { data } = await api.get('/api/youtube/playlists');
+    return data;
+  },
+
+  async youtubePlaylistItems(playlistId: string, maxResults = 50) {
+    const { data } = await api.get(`/api/youtube/playlist-items?playlistId=${encodeURIComponent(playlistId)}&maxResults=${maxResults}`);
+    return data;
+  },
+
+  async youtubePlaylistAdd(playlistId: string, videoId: string) {
+    const { data } = await api.post('/api/youtube/playlists/add', { playlistId, videoId });
+    return data;
+  },
+
+  async youtubePlaylistRemove(playlistItemId: string) {
+    const { data } = await api.post('/api/youtube/playlists/remove', { playlistItemId });
+    return data;
+  },
+
+  async youtubePlaylistReorder(playlistItemId: string, position: number) {
+    const { data } = await api.post('/api/youtube/playlists/reorder', { playlistItemId, position });
+    return data;
+  },
+
+  async youtubeUpload(formData: FormData) {
+    const { data } = await api.post('/api/youtube/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
+  async youtubeSetThumbnail(formData: FormData) {
+    const { data } = await api.post('/api/youtube/thumbnail', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
+  async authRevoke() {
+    const { data } = await api.post('/api/auth/revoke', {});
+    return data;
+  },
 };
 
 export { api as default };

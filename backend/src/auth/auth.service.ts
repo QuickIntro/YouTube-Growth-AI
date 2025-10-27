@@ -81,4 +81,35 @@ export class AuthService {
       updated_at: user.updated_at,
     };
   }
+
+  async revokeGoogleTokens(email: string) {
+    const db = this.databaseService.getClient();
+    const user = await this.databaseService.getUserByEmail(email);
+    if (!user) return { success: true };
+
+    const token = user.access_token || user.refresh_token;
+    if (token) {
+      try {
+        await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, {
+          method: 'POST',
+          headers: { 'Content-type': 'application/x-www-form-urlencoded' },
+        });
+      } catch {}
+    }
+
+    // Clear tokens and scopes in DB
+    await this.databaseService.updateUser(user.id, {
+      access_token: null,
+      refresh_token: null,
+      token_expires_at: null,
+      granted_scopes: null,
+    });
+
+    // Audit (best-effort)
+    try {
+      await db.from('youtube_scope_grants').insert({ user_id: user.id, scopes: user.granted_scopes || '', event: 'revoke' });
+    } catch {}
+
+    return { success: true };
+  }
 }
