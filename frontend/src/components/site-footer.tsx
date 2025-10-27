@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
@@ -10,8 +11,7 @@ export function SiteFooter() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">YG</div>
-              <span className="font-semibold">YouTube Growth AI</span>
+              <Image src="/brands/logo.png" alt="Logo" width={140} height={32} />
             </div>
             <p className="text-sm text-muted-foreground">
               Free AI tools to grow your channel: keywords, titles, descriptions, thumbnails, and analytics.
@@ -45,7 +45,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-8 border-t border-border pt-6 flex items-center justify-center">
-          <p className="text-xs text-muted-foreground text-center">© {year} YouTube Growth AI. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground text-center">© {year} All rights reserved.</p>
         </div>
       </div>
     </footer>

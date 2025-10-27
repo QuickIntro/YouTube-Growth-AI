@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="128" viewBox="0 0 512 128" role="img" aria-label="YouTube Growth AI">
+  <rect width="512" height="128" rx="16" fill="#0f172a"/>
+  <g transform="translate(24,26)">
+    <text x="0" y="36" font-family="Inter, Segoe UI, Arial, Helvetica, sans-serif" font-weight="800" font-size="40" fill="#ffffff">YouTube</text>
+    <text x="0" y="80" font-family="Inter, Segoe UI, Arial, Helvetica, sans-serif" font-weight="800" font-size="40" fill="#ffffff">Growth <tspan fill="#ffffff">AI</tspan></text>
+    <path d="M0,90 L 360,90" stroke="#ff0f6b" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>
