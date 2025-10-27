@@ -16,7 +16,7 @@ import { LoggingInterceptor } from './common/logging.interceptor';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '../.env',
+      envFilePath: ['../.env', '.env'],
     }),
     ThrottlerModule.forRoot([
       {
